@@ -76,11 +76,11 @@ export const SkillCardSchema = z.object({
 });
 
 // ── Stored skill card type (Redis) ────────────────────
-// extends SkillCard with server-side fields added on upload
+// file_url is added separately by user — not part of the skill card JSON
 export const StoredSkillCardSchema = SkillCardSchema.extend({
   uploaded_by:    z.string(),
   uploaded_at:    z.string(),
-  md_path:        z.string(),
+  file_url:       z.string(), 
   is_approved:    z.boolean().default(false),
   is_rejected:    z.boolean().default(false),
   approved_by:    z.string().nullable().default(null),

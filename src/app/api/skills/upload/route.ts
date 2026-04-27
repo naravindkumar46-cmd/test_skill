@@ -2,50 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import redis from "@/lib/redis";
 import { SkillCardSchema, StoredSkillCard } from "@/lib/skillSchema";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { z } from "zod";
+
+const UploadSchema = z.object({
+  skill_card: SkillCardSchema,
+  file_url:   z.string().min(1, "File URL is required"),
+});
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
-  // 1. parse multipart form
-  const formData = await req.formData();
-  const jsonFile = formData.get("skill_card") as File;
-  const mdFile   = formData.get("skill_md")   as File;
-
-  if (!jsonFile || !mdFile) {
-    return NextResponse.json(
-      { error: "Both skill_card (JSON) and skill_md (MD) files are required" },
-      { status: 400 }
-    );
-  }
-
-  // 2. validate file types
-  if (!jsonFile.name.endsWith(".json")) {
-    return NextResponse.json(
-      { error: "skill_card must be a .json file" },
-      { status: 400 }
-    );
-  }
-
-  if (!mdFile.name.endsWith(".md")) {
-    return NextResponse.json(
-      { error: "skill_md must be a .md file" },
-      { status: 400 }
-    );
-  }
-
-  // 3. parse and validate JSON against schema
+  // 1. parse and validate body
   let json: unknown;
   try {
-    const text = await jsonFile.text();
-    json = JSON.parse(text);
+    json = await req.json();
   } catch {
     return NextResponse.json(
-      { error: "Invalid JSON file" },
+      { error: "Invalid JSON body" },
       { status: 400 }
     );
   }
 
-  const parsed = SkillCardSchema.safeParse(json);
+  const parsed = UploadSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.flatten().fieldErrors },
@@ -53,10 +29,10 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 
-  const skill    = parsed.data;
+  const { skill_card: skill, file_url } = parsed.data;
   const redisKey = `skill:${skill.starterkit_id}:${skill.version}`;
 
-  // 4. reject if same starterkit_id + version already exists
+  // 2. reject if same version already exists
   const exists = await redis.exists(redisKey);
   if (exists) {
     return NextResponse.json(
@@ -65,24 +41,12 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 
-  // 5. save MD file to filesystem
-  const uploadDir = path.join(
-    process.cwd(),
-    process.env.SKILLS_UPLOAD_PATH!,
-    skill.starterkit_id,
-    skill.version
-  );
-
-  await mkdir(uploadDir, { recursive: true });
-  const mdBuffer = Buffer.from(await mdFile.arrayBuffer());
-  await writeFile(path.join(uploadDir, "skill.md"), mdBuffer);
-
-  // 6. build stored skill card with server-side fields
+  // 3. build stored skill card
   const storedSkill: StoredSkillCard = {
     ...skill,
     uploaded_by:    user.user_id,
     uploaded_at:    new Date().toISOString(),
-    md_path:        `${skill.starterkit_id}/${skill.version}/skill.md`,
+    file_url,
     is_approved:    false,
     is_rejected:    false,
     approved_by:    null,
@@ -92,13 +56,13 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     rejection_note: null,
   };
 
-  // 7. store in Redis
+  // 4. store in Redis
   await redis.set(redisKey, JSON.stringify(storedSkill));
 
-  // 8. update latest pointer
+  // 5. update latest pointer
   await redis.set(`skill:${skill.starterkit_id}:latest`, skill.version);
 
-  // 9. add to skill index for listing
+  // 6. add to skills index
   await redis.sadd("skills:index", skill.starterkit_id);
 
   return NextResponse.json({
@@ -108,6 +72,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       id:          skill.starterkit_id,
       version:     skill.version,
       name:        skill.name,
+      file_url,
       is_approved: false,
       is_rejected: false,
       uploaded_by: user.user_id,

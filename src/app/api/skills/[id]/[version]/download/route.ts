@@ -71,6 +71,7 @@ export const POST = withAuth(async (req: NextRequest, { user, params }) => {
       skillId:      id,
       version,
       purpose,
+      file_url:     skill.file_url,  
       downloadedAt: new Date().toISOString(),
     },
   });
