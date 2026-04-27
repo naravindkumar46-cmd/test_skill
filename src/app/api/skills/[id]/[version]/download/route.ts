@@ -10,7 +10,7 @@ const DownloadSchema = z.object({
 });
 
 export const POST = withAuth(async (req: NextRequest, { user, params }) => {
-  const { id, version } = params;
+  const { id, version } = await params;
 
   // 1. validate body
   const body   = await req.json();
