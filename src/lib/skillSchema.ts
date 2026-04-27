@@ -61,6 +61,8 @@ export const SkillCardSchema = z.object({
     ])
   ),
 
+  
+
   rating: z.object({
     last_score: z.number().optional(),
     grade:      z.enum(["A+", "A", "B", "C", "D", "F"]).optional(),
@@ -88,6 +90,8 @@ export const StoredSkillCardSchema = SkillCardSchema.extend({
   approved_at:    z.string().nullable().default(null),
   rejected_at:    z.string().nullable().default(null),
   rejection_note: z.string().nullable().default(null),
+  category: z.string().min(1).optional(),
+  subcategory: z.string().min(1).optional(),
 });
 
 export type SkillCard       = z.infer<typeof SkillCardSchema>;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import redis from "@/lib/redis";
 import { SkillCardSchema, StoredSkillCard } from "@/lib/skillSchema";
+import { createCategorizer } from "@/lib/categorization";
 import { z } from "zod";
 
 const UploadSchema = z.object({
@@ -56,13 +57,32 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     rejection_note: null,
   };
 
-  // 4. store in Redis
+  // 4. categorize the skill using GROK
+  let categorization;
+  try {
+    const categorizer = createCategorizer();
+    categorization = await categorizer.categorizeSkill(
+      skill.name,
+      skill.description,
+      skill.technology || [],
+      skill.tasks || []
+    );
+    
+    // Update stored skill with categorization
+    storedSkill.category = categorization.category;
+    storedSkill.subcategory = categorization.subcategory;
+  } catch (error) {
+    console.error('Categorization failed:', error);
+    // Continue without categorization - it's optional
+  }
+
+  // 5. store in Redis
   await redis.set(redisKey, JSON.stringify(storedSkill));
 
-  // 5. update latest pointer
+  // 6. update latest pointer
   await redis.set(`skill:${skill.starterkit_id}:latest`, skill.version);
 
-  // 6. add to skills index
+  // 7. add to skills index
   await redis.sadd("skills:index", skill.starterkit_id);
 
   return NextResponse.json({
@@ -77,6 +97,8 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       is_rejected: false,
       uploaded_by: user.user_id,
       uploaded_at: storedSkill.uploaded_at,
+      category: storedSkill.category,
+      subcategory: storedSkill.subcategory,
     },
   });
 });
