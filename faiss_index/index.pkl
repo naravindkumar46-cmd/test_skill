@@ -1,0 +1,62 @@
+{
+  "security-scanner-001": {
+    "skill_id": "security-scanner-001",
+    "name": "Security Vulnerability Scanner",
+    "version": "2.1.0",
+    "index": 0
+  },
+  "data-processor-001": {
+    "skill_id": "data-processor-001",
+    "name": "Data Pipeline Processor",
+    "version": "3.5.0",
+    "index": 1
+  },
+  "api-tester-001": {
+    "skill_id": "api-tester-001",
+    "name": "API Testing Framework",
+    "version": "2.8.0",
+    "index": 2
+  },
+  "code-generator-001": {
+    "skill_id": "code-generator-001",
+    "name": "AI Code Generator",
+    "version": "1.5.0",
+    "index": 3
+  },
+  "ci-cd-001": {
+    "skill_id": "ci-cd-001",
+    "name": "CI/CD Pipeline Builder",
+    "version": "4.2.0",
+    "index": 4
+  },
+  "performance-optimizer-001": {
+    "skill_id": "performance-optimizer-001",
+    "name": "Application Performance Optimizer",
+    "version": "2.0.0",
+    "index": 5
+  },
+  "log-analyzer-001": {
+    "skill_id": "log-analyzer-001",
+    "name": "Log Analysis Tool",
+    "version": "1.8.0",
+    "index": 6
+  },
+  "auth-manager-001": {
+    "skill_id": "auth-manager-001",
+    "name": "Authentication Manager",
+    "version": "3.0.0",
+    "index": 7
+  },
+  "docker-optimizer-001": {
+    "skill_id": "docker-optimizer-001",
+    "name": "Docker Container Optimizer",
+    "version": "1.5.0",
+    "index": 8
+  },
+  "database-migrator-001": {
+    "skill_id": "database-migrator-001",
+    "name": "Database Migration Tool",
+    "version": "2.3.0",
+    "index": 9
+  }
+}

@@ -1,8 +1,9 @@
 import { generateText } from 'ai';
 import { createGroq } from '@ai-sdk/groq';
 import { StoredSkillCard } from '../skillSchema';
-import { getEmbedding } from './embedding';
-import { initFaissIndex, searchEmbeddings } from './faiss-store';
+import { generateEmbedding } from '../embeddings';
+import { loadFAISSIndex, getIndexPaths } from '../faiss';
+import fs from 'fs';
 import redis from '../redis';
 
 // Initialize Groq client
@@ -170,13 +171,52 @@ function scoreSkill(skill: StoredSkillCard, query: string): number {
 async function vectorSearch(queryEmbedding: number[], limit: number = 50): Promise<string[]> {
   console.log('[AI Search] Using FAISS for vector search');
   
-  // Initialize FAISS index
-  await initFaissIndex();
-  
-  // Search FAISS index
-  const results = await searchEmbeddings(queryEmbedding, limit);
-  
-  return results.map((r: { skillId: string; distance: number }) => r.skillId);
+  try {
+    // Load FAISS index paths
+    const indexPaths = getIndexPaths();
+    
+    if (!fs.existsSync(indexPaths.indexFile) || !fs.existsSync(indexPaths.metadataFile)) {
+      console.log('[AI Search] FAISS index files not found, falling back to keyword search');
+      return [];
+    }
+    
+    // Load FAISS index data
+    const indexData = JSON.parse(fs.readFileSync(indexPaths.indexFile, 'utf-8'));
+    const metadata = JSON.parse(fs.readFileSync(indexPaths.metadataFile, 'utf-8'));
+    
+    // Simple cosine similarity search (since we don't have actual FAISS library)
+    const similarities: Array<{ skillId: string; similarity: number }> = [];
+    
+    for (const [skillId, skillData] of Object.entries(metadata)) {
+      const skillDataTyped = skillData as { index: number; skill_id: string; name: string; version: string };
+      const skillEmbedding = indexData.embeddings[skillDataTyped.index];
+      if (skillEmbedding) {
+        // Calculate cosine similarity
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+        
+        for (let i = 0; i < queryEmbedding.length; i++) {
+          dotProduct += queryEmbedding[i] * skillEmbedding[i];
+          normA += queryEmbedding[i] * queryEmbedding[i];
+          normB += skillEmbedding[i] * skillEmbedding[i];
+        }
+        
+        normA = Math.sqrt(normA);
+        normB = Math.sqrt(normB);
+        
+        const similarity = dotProduct / (normA * normB);
+        similarities.push({ skillId, similarity });
+      }
+    }
+    
+    // Sort by similarity and return top N
+    similarities.sort((a, b) => b.similarity - a.similarity);
+    return similarities.slice(0, limit).map(item => item.skillId);
+  } catch (error) {
+    console.error('[AI Search] Vector search failed:', error);
+    return [];
+  }
 }
 
 /**
@@ -254,11 +294,12 @@ OUTPUT FORMAT (STRICT JSON):
     // Try semantic search with embeddings
     try {
       const embeddingStartTime = Date.now();
-      const queryEmbedding = await getEmbedding(query);
+      const queryEmbedding = await generateEmbedding(query);
       const embeddingTime = Date.now() - embeddingStartTime;
       console.log(`[AI Search] Query embedding generated in ${embeddingTime}ms`);
 
       const vectorSearchStartTime = Date.now();
+      // Use our own vector search implementation since we don't have searchEmbeddings
       const vectorResultIds = await vectorSearch(queryEmbedding, 50);
       const vectorSearchTime = Date.now() - vectorSearchStartTime;
       console.log(`[AI Search] Vector search completed in ${vectorSearchTime}ms, found ${vectorResultIds.length} skills`);
