@@ -9,7 +9,7 @@ const RejectSchema = z.object({
 });
 
 export const POST = withAdmin(async (req: NextRequest, { user, params }) => {
-  const { id, version } = params;
+  const { id, version } = await params;
   const redisKey = `skill:${id}:${version}`;
 
   // 1. validate body

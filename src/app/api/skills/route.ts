@@ -5,18 +5,21 @@ import { StoredSkillCard } from "@/lib/skillSchema";
 
 export const GET = withAuth(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
-  const technology = searchParams.get("technology");
-  const page       = parseInt(searchParams.get("page")  ?? "1");
-  const limit      = parseInt(searchParams.get("limit") ?? "10");
 
-  // 1. get all starterkit_ids from index
+  const technology  = searchParams.get("technology");
+  const category    = searchParams.get("category");
+  const subcategory = searchParams.get("subcategory");
+
+  const page  = parseInt(searchParams.get("page") ?? "1");
+  const limit = parseInt(searchParams.get("limit") ?? "10");
+
+  // 1. get all skillIds
   const skillIds = await redis.smembers("skills:index");
 
   if (skillIds.length === 0) {
     return NextResponse.json({ skills: [], total: 0, page, limit });
   }
 
-  // 2. fetch latest version of each skill — approved only
   const skills: StoredSkillCard[] = [];
 
   await Promise.all(
@@ -29,28 +32,36 @@ export const GET = withAuth(async (req: NextRequest) => {
 
       const skill = JSON.parse(data) as StoredSkillCard;
 
-      // only approved skills
+      // ✅ only approved
       if (!skill.is_approved) return;
 
-      // filter by technology if provided
+      // ✅ technology filter
       if (technology && !skill.technology?.includes(technology)) return;
+
+      // ✅ category filter
+      if (category && skill.category !== category) return;
+
+      // ✅ subcategory filter
+      if (subcategory && skill.subcategory !== subcategory) return;
 
       skills.push(skill);
     })
   );
 
-  // 3. sort by uploaded_at descending
-  skills.sort((a, b) =>
-    new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+  // sort
+  skills.sort(
+    (a, b) =>
+      new Date(b.uploaded_at).getTime() -
+      new Date(a.uploaded_at).getTime()
   );
 
-  // 4. paginate
-  const total     = skills.length;
-  const start     = (page - 1) * limit;
+  // pagination
+  const total = skills.length;
+  const start = (page - 1) * limit;
   const paginated = skills.slice(start, start + limit);
 
   return NextResponse.json({
-    skills:     paginated,
+    skills: paginated,
     total,
     page,
     limit,

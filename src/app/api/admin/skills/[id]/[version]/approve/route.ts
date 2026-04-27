@@ -5,13 +5,6 @@ import { StoredSkillCard } from "@/lib/skillSchema";
 
 export const POST = withAdmin(async (_req, { user, params }) => {
   const { id, version } = await params;
-  if(!id){
-    console.log("ankur ji");
-  }
-  if(!version){
-    console.log("govind dhudiya");
-    
-  }
   const redisKey = `skill:${id}:${version}`;
 
   // 1. check skill exists

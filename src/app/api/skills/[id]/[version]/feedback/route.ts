@@ -12,7 +12,7 @@ const FeedbackSchema = z.object({
 
 // submit feedback
 export const POST = withAuth(async (req: NextRequest, { user, params }) => {
-  const { id, version } = params;
+  const { id, version } = await params;
 
   // 1. validate body
   const body   = await req.json();
@@ -90,7 +90,7 @@ export const POST = withAuth(async (req: NextRequest, { user, params }) => {
 
 // get feedback + average rating
 export const GET = withAuth(async (_req: NextRequest, { params }) => {
-  const { id, version } = params;
+  const { id, version } = await params;
 
   // 1. get all feedback for this skill version
   const feedbacks = await prisma.skillFeedback.findMany({

@@ -4,7 +4,7 @@ import redis from "@/lib/redis";
 import { StoredSkillCard } from "@/lib/skillSchema";
 
 export const GET = withAuth(async (req: NextRequest, { params }) => {
-  const { id } = params;
+  const { id } = await params;
   const { searchParams } = req.nextUrl;
   const version = searchParams.get("version"); // optional — defaults to latest
 
