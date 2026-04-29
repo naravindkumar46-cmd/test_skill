@@ -4,17 +4,43 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 
 const LoginSchema = z.object({
-  user_id:  z.string().min(1),
+  user_id: z.string().min(1),
   password: z.string().min(1),
 });
 
+/**
+ * SHARED CORS HEADERS
+ * Updated to include Max-Age and allow-credentials for cross-port support.
+ */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "http://localhost:3000",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Max-Age": "86400",
+};
+
+/**
+ * 1. THE PREFLIGHT HANDLER (OPTIONS)
+ * Handles the browser's security handshake.
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+}
+
+/**
+ * 2. THE LOGIN HANDLER (POST)
+ */
 export async function POST(req: NextRequest) {
   try {
-    // 1. validate body
-    const body   = await req.json();
+    // 1. Validate the incoming request body
+    const body = await req.json();
     const parsed = LoginSchema.parse(body);
 
-    // 2. call central auth app
+    // 2. Call Central Auth server to verify credentials
     let authData;
     try {
       const { data } = await axios.post(
@@ -23,16 +49,20 @@ export async function POST(req: NextRequest) {
       );
       authData = data;
     } catch (err: any) {
-      return NextResponse.json({
-        success: false,
-        synced:  false,
-        user:    null,
-        error:   err.response?.data ?? err.message,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: err.response?.data ?? err.message,
+        },
+        {
+          status: 401,
+          headers: CORS_HEADERS,
+        }
+      );
     }
 
-    // 3. fetch email from /me using the new access token
-    let email = authData.user_id; // fallback
+    // 3. Fetch user details from /me using the new token
+    let email = authData.user_id;
     try {
       const { data: meData } = await axios.get(
         `${process.env.NEXT_PUBLIC_AUTH_API_URL}/api/auth/me`,
@@ -40,62 +70,68 @@ export async function POST(req: NextRequest) {
       );
       email = meData.email;
     } catch {
-      // keep fallback
+      // Fallback to user_id if /me fails
     }
 
-    // 4. sync user into DB
+    // 4. Sync User profile into local Postgres DB
     let synced = false;
     let dbUser = null;
 
     try {
       dbUser = await prisma.user.upsert({
-        where:  { id: authData.user_id },
+        where: { id: authData.user_id },
         update: {
           email,
           role: authData.role?.toUpperCase() === "ADMIN" ? "ADMIN" : "USER",
         },
         create: {
-          id:    authData.user_id,
+          id: authData.user_id,
           email,
-          role:  authData.role?.toUpperCase() === "ADMIN" ? "ADMIN" : "USER",
+          role: authData.role?.toUpperCase() === "ADMIN" ? "ADMIN" : "USER",
         },
       });
 
-      // synced = true only if profile is complete
       synced = !!(dbUser.businessGroup && dbUser.IOU && dbUser.account);
     } catch (err) {
       console.error("DB sync error:", err);
-      synced = false;
     }
 
-    // 5. build response with app-specific cookies
+    // 5. Build the Response object
+    const response = NextResponse.json(
+      {
+        success: true,
+        synced,
+        access_token: authData.access_token,
+        user: {
+          id: authData.user_id,
+          role: authData.role,
+          dbData: dbUser,
+        },
+      },
+      {
+        headers: CORS_HEADERS,
+      }
+    );
+
+    // 6. Set Cookies for the Frontend (Lax + Path are key for localhost)
     const cookieOptions = {
       httpOnly: true,
-      secure:   process.env.NODE_ENV === "production",
-      path:     "/",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      sameSite: "lax" as const,
     };
 
-    const response = NextResponse.json({
-      success:              true,
-      synced,
-      access_token:         authData.access_token,
-      refresh_token:        authData.refresh_token,
-      expires_in:           authData.expires_in,
-      must_change_password: authData.must_change_password,
-      password_expired:     authData.password_expired,
-      user: {
-        id:     authData.user_id,
-        role:   authData.role,
-        dbData: dbUser,
-      },
-    });
+    const accessTokenName = process.env.COOKIE_NAME || "sel_access_token";
+    const refreshTokenName = process.env.COOKIE_REFRESH_NAME || "sel_refresh_token";
 
-    response.cookies.set(process.env.COOKIE_NAME!, authData.access_token, {
+    // Set Access Token
+    response.cookies.set(accessTokenName, authData.access_token, {
       ...cookieOptions,
-      maxAge: authData.expires_in ?? 60 * 60,
+      maxAge: authData.expires_in ?? 3600,
     });
 
-    response.cookies.set(process.env.COOKIE_REFRESH_NAME!, authData.refresh_token, {
+    // Set Refresh Token
+    response.cookies.set(refreshTokenName, authData.refresh_token, {
       ...cookieOptions,
       maxAge: 60 * 60 * 24 * 7,
     });
@@ -104,8 +140,11 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, synced: false, error: error.message },
-      { status: 400 }
+      { success: false, error: error.message },
+      {
+        status: 400,
+        headers: CORS_HEADERS,
+      }
     );
   }
 }

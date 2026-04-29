@@ -11,94 +11,109 @@ const UploadSchema = z.object({
 });
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
-  // 1. parse and validate body
-  let json: unknown;
   try {
-    json = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
+    // 1. parse and validate body
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
 
-  const parsed = UploadSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.flatten().fieldErrors },
-      { status: 422 }
-    );
-  }
+    const parsed = UploadSchema.safeParse(json);
+    if (!parsed.success) {
+      console.error('Validation errors:', parsed.error.flatten().fieldErrors);
+      return NextResponse.json(
+        { error: parsed.error.flatten().fieldErrors },
+        { status: 422 }
+      );
+    }
 
-  const { skill_card: skill, file_url } = parsed.data;
-  const redisKey = `skill:${skill.starterkit_id}:${skill.version}`;
+    const { skill_card: skill, file_url } = parsed.data;
+    const redisKey = `skill:${skill.starterkit_id}:${skill.version}`;
 
-  // 2. reject if same version already exists
-  const exists = await redis.exists(redisKey);
-  if (exists) {
-    return NextResponse.json(
-      { error: `Skill ${skill.starterkit_id} version ${skill.version} already exists` },
-      { status: 409 }
-    );
-  }
+    // 2. reject if same version already exists
+    const exists = await redis.exists(redisKey);
+    if (exists) {
+      return NextResponse.json(
+        { error: `Skill ${skill.starterkit_id} version ${skill.version} already exists` },
+        { status: 409 }
+      );
+    }
 
-  // 3. build stored skill card
-  const storedSkill: StoredSkillCard = {
-    ...skill,
-    uploaded_by:    user.user_id,
-    uploaded_at:    new Date().toISOString(),
-    file_url,
-    is_approved:    false,
-    is_rejected:    false,
-    approved_by:    null,
-    rejected_by:    null,
-    approved_at:    null,
-    rejected_at:    null,
-    rejection_note: null,
-  };
-
-  // 4. categorize the skill using GROK
-  let categorization;
-  try {
-    const categorizer = createCategorizer();
-    categorization = await categorizer.categorizeSkill(
-      skill.name,
-      skill.description,
-      skill.technology || [],
-      skill.tasks || []
-    );
-    
-    // Update stored skill with categorization
-    storedSkill.category = categorization.category;
-    storedSkill.subcategory = categorization.subcategory;
-  } catch (error) {
-    console.error('Categorization failed:', error);
-    // Continue without categorization - it's optional
-  }
-
-  // 5. store in Redis
-  await redis.set(redisKey, JSON.stringify(storedSkill));
-
-  // 6. update latest pointer
-  await redis.set(`skill:${skill.starterkit_id}:latest`, skill.version);
-
-  // 7. add to skills index
-  await redis.sadd("skills:index", skill.starterkit_id);
-
-  return NextResponse.json({
-    success: true,
-    message: "Skill uploaded successfully — pending approval",
-    skill: {
-      id:          skill.starterkit_id,
-      version:     skill.version,
-      name:        skill.name,
+    // 3. build stored skill card
+    const storedSkill: StoredSkillCard = {
+      ...skill,
+      uploaded_by:    user.user_id,
+      uploaded_at:    new Date().toISOString(),
       file_url,
-      is_approved: false,
-      is_rejected: false,
-      uploaded_by: user.user_id,
-      uploaded_at: storedSkill.uploaded_at,
-      category: storedSkill.category,
-      subcategory: storedSkill.subcategory,
-    },
-  });
+      is_approved:    false,
+      is_rejected:    false,
+      approved_by:    null,
+      rejected_by:    null,
+      approved_at:    null,
+      rejected_at:    null,
+      rejection_note: null,
+    };
+
+    // 4. categorize the skill using GROK (optional)
+    let categorization;
+    try {
+      const categorizer = createCategorizer();
+      categorization = await categorizer.categorizeSkill(
+        skill.name,
+        skill.description,
+        skill.technology || [],
+        skill.tasks || []
+      );
+      
+      // Update stored skill with categorization
+      storedSkill.category = categorization.category;
+      storedSkill.subcategory = categorization.subcategory;
+    } catch (error) {
+      console.error('Categorization failed:', error);
+      // Default categorization - skill will be categorized manually by admins
+      storedSkill.category = 'Uncategorized';
+      storedSkill.subcategory = 'Pending Review';
+    }
+
+    // 5. store in Redis
+    await redis.set(redisKey, JSON.stringify(storedSkill));
+
+    // 6. update latest pointer
+    await redis.set(`skill:${skill.starterkit_id}:latest`, skill.version);
+
+    // 7. add to skills index
+    await redis.sadd("skills:index", skill.starterkit_id);
+
+    return NextResponse.json({
+      success: true,
+      message: "Skill uploaded successfully — pending approval",
+      skill: {
+        id:          skill.starterkit_id,
+        version:     skill.version,
+        name:        skill.name,
+        file_url,
+        is_approved: false,
+        is_rejected: false,
+        uploaded_by: user.user_id,
+        uploaded_at: storedSkill.uploaded_at,
+        category: storedSkill.category,
+        subcategory: storedSkill.subcategory,
+      },
+    });
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        details: error?.message || 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
+      { status: 500 }
+    );
+  }
 });

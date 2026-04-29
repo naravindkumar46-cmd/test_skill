@@ -1,11 +1,21 @@
 {
-  "name": "sel-skill",
+  "name": "sel-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    ".",
+    "frontend"
+  ],
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "dev:backend": "npm run dev -w=.",
+    "dev:frontend": "npm run dev -w=frontend",
+    "build": "npm run build -w=. && npm run build -w=frontend",
+    "build:backend": "npm run build -w=.",
+    "build:frontend": "npm run build -w=frontend",
     "start": "next start",
+    "start:backend": "npm run start -w=.",
+    "start:frontend": "npm run start -w=frontend",
     "lint": "eslint"
   },
   "dependencies": {
