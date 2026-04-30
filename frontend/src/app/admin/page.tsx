@@ -166,7 +166,7 @@ export default function AdminPage() {
               {skills.map((skill) => (
                 <div
                   key={skill.starterkit_id}
-                  className="bg-bg-secondary dark:bg-bg-dark-secondary border border-border dark:border-border-dark rounded-xl p-6 hover:shadow-medium dark:hover:shadow-light-dark transition-all"
+                  className="bg-gradient-to-b from-white to-bg-secondary dark:from-bg-dark-secondary dark:to-bg-dark border border-border dark:border-border-dark rounded-2xl p-6 hover:shadow-medium dark:hover:shadow-light-dark transition-all"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -192,7 +192,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-text-muted">
-                        <span>By {skill.author}</span>
+                        <span>By {skill.author?.trim() || 'Unknown author'}</span>
                         <span>v{skill.version}</span>
                         <span>{new Date(skill.uploaded_at).toLocaleDateString()}</span>
                       </div>
@@ -205,31 +205,32 @@ export default function AdminPage() {
                     </div>
                     
                     {/* Action Buttons */}
-                    {!skill.is_approved && !skill.is_rejected ? (
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => handleApprove(skill.starterkit_id)}
-                          disabled={actionLoading}
-                          className="px-4 py-2 bg-success text-white font-medium rounded-lg hover:brightness-110 disabled:opacity-50 transition-all whitespace-nowrap"
-                        >
-                          {actionLoading ? '...' : 'Approve'}
-                        </button>
-                        <button
-                          onClick={() => setRejectingSkillId(skill.starterkit_id)}
-                          disabled={actionLoading}
-                          className="px-4 py-2 bg-error text-white font-medium rounded-lg hover:brightness-110 disabled:opacity-50 transition-all whitespace-nowrap"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : (
+                    <div className="flex flex-col gap-2">
+                      {!skill.is_approved && !skill.is_rejected && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(skill.starterkit_id)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-[#16a34a] text-white font-semibold rounded-lg hover:bg-[#15803d] disabled:bg-[#94a3b8] disabled:text-white/90 transition-colors whitespace-nowrap"
+                          >
+                            {actionLoading ? '...' : 'Approve'}
+                          </button>
+                          <button
+                            onClick={() => setRejectingSkillId(skill.starterkit_id)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-error text-white font-medium rounded-lg hover:brightness-110 disabled:opacity-50 transition-all whitespace-nowrap"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
                       <button
                         className="px-4 py-2 bg-primary/10 text-primary font-medium rounded-lg hover:bg-primary/20 transition-colors whitespace-nowrap"
                         onClick={() => router.push(`/admin/skills/${skill.starterkit_id}`)}
                       >
-                        View
+                        View Full Card
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   {/* Rejection Form */}

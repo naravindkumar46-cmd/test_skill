@@ -8,10 +8,6 @@ const ApproveSchema = z.object({
   notes: z.string().optional(),
 });
 
-const RejectSchema = z.object({
-  reason: z.string().min(1, "Rejection reason is required"),
-});
-
 /**
  * POST /api/admin/skills/[id]/approve
  * Admin approves a pending skill
@@ -47,19 +43,33 @@ export const POST = withAdmin(async (req: NextRequest, { user, params }) => {
     }
 
     const skill: StoredSkillCard = JSON.parse(skillData);
+    const now = new Date().toISOString();
 
-    // Check if already approved
-    if (skill.is_approved) {
+    // If already cleanly approved, no-op.
+    // If flags are inconsistent (approved + rejected), continue and normalize below.
+    if (skill.is_approved && !skill.is_rejected) {
       return NextResponse.json(
         { error: "Skill is already approved" },
         { status: 409 }
       );
     }
 
-    // Update skill with approval
+    // Update skill with approval and clear any prior rejection state
     skill.is_approved = true;
+    skill.is_rejected = false;
     skill.approved_by = user.user_id;
-    skill.approved_at = new Date().toISOString();
+    skill.approved_at = now;
+    skill.rejected_by = null;
+    skill.rejected_at = null;
+    skill.rejection_note = null;
+    skill.moderation_history = skill.moderation_history || [];
+    skill.moderation_history.push({
+      actor_role: "ADMIN",
+      actor_id: user.user_id,
+      action: "APPROVED",
+      comment: body.data.notes?.trim() || "Approved by admin",
+      at: now,
+    });
 
     // Save back to Redis
     await redis.set(`skill:${id}:${latestVersion}`, JSON.stringify(skill));

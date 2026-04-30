@@ -43,8 +43,12 @@ export const GET = withAuth(async (req: NextRequest) => {
 
       // ✅ Apply Optional Filters (status/technology) if provided
       if (status) {
-        // Checking against your schema's status field or is_approved boolean
-        const currentStatus = skill.is_approved ? "approved" : "pending"; 
+        // Explicitly map mutually exclusive states for correct admin filtering
+        const currentStatus = skill.is_rejected
+          ? "rejected"
+          : skill.is_approved
+          ? "approved"
+          : "pending";
         if (currentStatus !== status) return;
       }
 

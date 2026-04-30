@@ -16,7 +16,7 @@ export default function MarketplacePage() {
 
   // Fetch only approved skills for the marketplace
   const { skills, loading, error } = useSkills({
-    status: 'approved',
+    endpoint: 'marketplace',
     limit: 20,
   });
 
@@ -128,7 +128,7 @@ export default function MarketplacePage() {
               {skills.map((skill) => (
                 <div
                   key={skill.starterkit_id}
-                  className="bg-bg-secondary dark:bg-bg-dark-secondary border border-border dark:border-border-dark rounded-xl p-6 hover:shadow-medium dark:hover:shadow-light-dark hover:border-primary/50 transition-all group cursor-pointer"
+                  className="bg-gradient-to-b from-white to-bg-secondary dark:from-bg-dark-secondary dark:to-bg-dark border border-border dark:border-border-dark rounded-2xl p-6 hover:shadow-medium dark:hover:shadow-light-dark hover:border-primary/50 transition-all group cursor-pointer"
                   onClick={() => router.push(`/skills/${skill.starterkit_id}`)}
                 >
                   {/* Header with Status Badge */}
@@ -165,7 +165,7 @@ export default function MarketplacePage() {
 
                   {/* Footer */}
                   <div className="flex items-center justify-between pt-4 border-t border-border dark:border-border-dark text-xs text-text-muted">
-                    <span>{skill.author}</span>
+                    <span>{skill.author?.trim() || 'Unknown author'}</span>
                     <span>v{skill.version}</span>
                   </div>
                 </div>

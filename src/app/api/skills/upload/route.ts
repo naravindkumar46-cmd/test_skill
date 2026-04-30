@@ -57,6 +57,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
       approved_at:    null,
       rejected_at:    null,
       rejection_note: null,
+      moderation_history: [],
     };
 
     // 4. categorize the skill using GROK (optional)

@@ -163,7 +163,7 @@ export default function MySkillsPage() {
               {filteredSkills.map((skill) => (
                 <div
                   key={skill.starterkit_id}
-                  className="bg-bg-secondary dark:bg-bg-dark-secondary border border-border dark:border-border-dark rounded-xl p-6 hover:shadow-medium dark:hover:shadow-light-dark transition-all"
+                  className="bg-gradient-to-b from-white to-bg-secondary dark:from-bg-dark-secondary dark:to-bg-dark border border-border dark:border-border-dark rounded-2xl p-6 hover:shadow-medium dark:hover:shadow-light-dark transition-all"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -225,7 +225,7 @@ export default function MySkillsPage() {
                     </div>
 
                     <button
-                      onClick={() => router.push(`/skills/${skill.starterkit_id}`)}
+                      onClick={() => router.push(`/my-skills/${skill.starterkit_id}`)}
                       className="px-4 py-2 bg-primary/10 text-primary font-medium rounded-lg hover:bg-primary/20 transition-colors whitespace-nowrap h-fit"
                     >
                       View

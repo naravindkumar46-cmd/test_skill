@@ -92,6 +92,15 @@ export const StoredSkillCardSchema = SkillCardSchema.extend({
   rejection_note: z.string().nullable().default(null),
   category: z.string().min(1).optional(),
   subcategory: z.string().min(1).optional(),
+  moderation_history: z.array(
+    z.object({
+      actor_role: z.enum(["ADMIN", "USER"]),
+      actor_id: z.string(),
+      action: z.enum(["REJECTED", "APPROVED", "RESUBMITTED"]),
+      comment: z.string(),
+      at: z.string(),
+    })
+  ).default([]),
 });
 
 export type SkillCard       = z.infer<typeof SkillCardSchema>;

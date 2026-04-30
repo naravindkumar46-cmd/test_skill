@@ -27,6 +27,7 @@ interface UseSkillsOptions {
   status?: 'approved' | 'pending' | 'rejected';
   page?: number;
   limit?: number;
+  endpoint?: 'marketplace' | 'all';
 }
 
 export function useSkills(options?: UseSkillsOptions) {
@@ -46,7 +47,8 @@ export function useSkills(options?: UseSkillsOptions) {
         if (options?.page) params.append('page', options.page.toString());
         if (options?.limit) params.append('limit', options.limit.toString());
 
-        const response = await fetch(`/api/skills/all?${params}`, {
+        const endpoint = options?.endpoint === 'marketplace' ? '/api/skills' : '/api/skills/all';
+        const response = await fetch(`${endpoint}?${params}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -77,7 +79,7 @@ export function useSkills(options?: UseSkillsOptions) {
     };
 
     fetchSkills();
-  }, [options?.status, options?.page, options?.limit]);
+  }, [options?.status, options?.page, options?.limit, options?.endpoint]);
 
   return { skills, loading, error, pagination };
 }

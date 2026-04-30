@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Font */
@@ -10,6 +11,12 @@
   --color-primary-dark: #005a9e;
   --color-secondary: #8b5cf6;
   --color-secondary-dark: #7c3aed;
+  --color-success: #10b981;
+  --color-success-dark: #34d399;
+  --color-warning: #f59e0b;
+  --color-warning-dark: #fbbf24;
+  --color-info: #3b82f6;
+  --color-info-dark: #60a5fa;
   --color-error: #ef4444;
   --color-error-dark: #dc2626;
 

@@ -46,19 +46,31 @@ export const POST = withAdmin(async (req: NextRequest, { user, params }) => {
 
     const skill: StoredSkillCard = JSON.parse(skillData);
 
-    // Check if already rejected
-    if (skill.is_rejected) {
+    // If already cleanly rejected, no-op.
+    // If flags are inconsistent (approved + rejected), continue and normalize below.
+    if (skill.is_rejected && !skill.is_approved) {
       return NextResponse.json(
         { error: "Skill is already rejected" },
         { status: 409 }
       );
     }
 
-    // Update skill with rejection
+    // Update skill with rejection and clear any prior approval state
     skill.is_rejected = true;
+    skill.is_approved = false;
     skill.rejected_by = user.user_id;
     skill.rejected_at = new Date().toISOString();
     skill.rejection_note = reason;
+    skill.approved_by = null;
+    skill.approved_at = null;
+    skill.moderation_history = skill.moderation_history || [];
+    skill.moderation_history.push({
+      actor_role: "ADMIN",
+      actor_id: user.user_id,
+      action: "REJECTED",
+      comment: reason,
+      at: new Date().toISOString(),
+    });
 
     // Save back to Redis
     await redis.set(`skill:${id}:${latestVersion}`, JSON.stringify(skill));
